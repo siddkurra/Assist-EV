@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ASSIST EV</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+  <h1 class="text-4xl font-bold text-center text-blue-600 mb-8">ASSIST EV</h1>
+
+  <div id="forms" class="space-y-4">
+    <!-- First dropdown set -->
+    <div class="flex space-x-4 items-center school-major-pair">
+      <select class="school-dropdown border p-2 rounded">
+        <option value="">Select Transfer School</option>
+        {% for id, name in schools.items() %}
+          <option value="{{ id }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+      <select class="major-dropdown border p-2 rounded hidden">
+        <option value="">Select Major</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="mt-6 flex space-x-4">
+    <button id="addMore" class="px-4 py-2 bg-green-500 text-white rounded">ADD MORE</button>
+    <button id="searchBtn" class="px-4 py-2 bg-blue-500 text-white rounded">SEARCH</button>
+  </div>
+
+  <div id="results" class="mt-8 space-y-4"></div>
+
+<script>
+function attachDropdownListeners(container) {
+  let schoolSelect = container.querySelector(".school-dropdown");
+  let majorSelect = container.querySelector(".major-dropdown");
+
+  schoolSelect.addEventListener("change", function() {
+    let schoolId = this.value;
+    if (schoolId) {
+      fetch(`/majors/${schoolId}`)
+        .then(res => res.json())
+        .then(data => {
+          majorSelect.innerHTML = '<option value="">Select Major</option>';
+          if (data.majors) {
+            data.majors.forEach(m => {
+              let opt = document.createElement("option");
+              opt.value = m;
+              opt.textContent = m;
+              majorSelect.appendChild(opt);
+            });
+            majorSelect.classList.remove("hidden");
+          }
+        });
+    }
+  });
+}
+
+attachDropdownListeners(document.querySelector(".school-major-pair"));
+
+document.getElementById("addMore").addEventListener("click", function() {
+  let div = document.createElement("div");
+  div.className = "flex space-x-4 items-center school-major-pair";
+  div.innerHTML = `
+    <select class="school-dropdown border p-2 rounded">
+      <option value="">Select Transfer School</option>
+      {% for id, name in schools.items() %}
+        <option value="{{ id }}">{{ name }}</option>
+      {% endfor %}
+    </select>
+    <select class="major-dropdown border p-2 rounded hidden">
+      <option value="">Select Major</option>
+    </select>`;
+  document.getElementById("forms").appendChild(div);
+  attachDropdownListeners(div);
+});
+
+document.getElementById("searchBtn").addEventListener("click", function() {
+  let pairs = [];
+  document.querySelectorAll(".school-major-pair").forEach(div => {
+    let school = div.querySelector(".school-dropdown").value;
+    let major = div.querySelector(".major-dropdown").value;
+    if (school && major) {
+      pairs.push({id: parseInt(school), major: major});
+    }
+  });
+
+  fetch("/search", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(pairs)
+  })
+  .then(res => res.json())
+  .then(data => {
+  let resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = "";
+
+  for (let [school, courses] of Object.entries(data)) {
+    let card = document.createElement("div");
+    card.className = "bg-white shadow p-4 rounded";
+
+    let title = document.createElement("h2");
+    title.className = "text-xl font-bold mb-4";
+    title.textContent = school;
+    card.appendChild(title);
+
+    let courseContainer = document.createElement("div");
+    courseContainer.className = "space-y-6";
+
+    // courses = [receiving_courses, sending_courses]
+    let [receiving, sending] = courses;
+
+    for (let i = 0; i < receiving.length; i++) {
+      let pairDiv = document.createElement("div");
+      pairDiv.className = "grid grid-cols-2 gap-4 items-center";
+
+      // Receiving side
+      let recvBox = document.createElement("div");
+      recvBox.className = "bg-blue-50 p-2 rounded";
+      receiving[i].forEach(group => {
+        group.forEach(c => {
+          let pill = document.createElement("span");
+          pill.className = "inline-block bg-blue-200 text-blue-800 text-sm px-2 py-1 m-1 rounded";
+          pill.textContent = c[0] && c[1] ? `${c[0]} ${c[1]}: ${c[2]}` : c[2];
+          recvBox.appendChild(pill);
+
+          if (c[3]) {
+            let conj = document.createElement("span");
+            conj.className = "text-xs text-gray-500 ml-1";
+            conj.textContent = `(${c[3]})`;
+            recvBox.appendChild(conj);
+          }
+        });
+      });
+
+      // Sending side
+      let sendBox = document.createElement("div");
+      sendBox.className = "bg-green-50 p-2 rounded";
+      sending[i].forEach(c => {
+        let pill = document.createElement("span");
+        pill.className = "inline-block bg-green-200 text-green-800 text-sm px-2 py-1 m-1 rounded";
+        pill.textContent = c[0] && c[1] ? `${c[0]} ${c[1]}: ${c[2]}` : c[2];
+        sendBox.appendChild(pill);
+
+        if (c[3]) {
+          let conj = document.createElement("span");
+          conj.className = "text-xs text-gray-500 ml-1";
+          conj.textContent = `(${c[3]})`;
+          sendBox.appendChild(conj);
+        }
+      });
+
+      pairDiv.appendChild(recvBox);
+      pairDiv.appendChild(sendBox);
+      courseContainer.appendChild(pairDiv);
+    }
+
+    card.appendChild(courseContainer);
+    resultsDiv.appendChild(card);
+  }
+});
+
+});
+</script>
+</body>
+</html>
