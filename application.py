@@ -1,8 +1,29 @@
 from flask import Flask, render_template, request, jsonify
-from backend import major_getter, JSONbase  # import your existing logic
+from backend import major_getter, JSONbase
+import pandas as pd
+import os
 
 application = Flask(__name__)
 
+# --- Load and Process Courses CSV ---
+csv_path = os.path.join(os.path.dirname(__file__), "data", "courses.csv")
+course_df = pd.read_csv(csv_path)
+course_list = sorted(course_df["Course Title"].dropna().unique())
+
+abbrv_number_map = {}
+for item in course_list:
+    parts = str(item).split(" ", 1)
+    if len(parts) == 2:
+        abbrv, number = parts
+        abbrv_number_map.setdefault(abbrv.upper(), []).append(number)
+
+# Sort numbers for each abbreviation
+for abbrv in abbrv_number_map:
+    abbrv_number_map[abbrv] = sorted(abbrv_number_map[abbrv])
+
+abbrv_list = sorted(list(abbrv_number_map.keys()))
+
+# --- School map ---
 school_map = {
     1: "California State University, Maritime Academya",
     7: "University of California, San Diego",
@@ -45,9 +66,11 @@ school_map = {
     214: "Pepperdine University"
 }
 
+# --- Routes ---
 @application.route("/")
 def home():
-    return render_template("index.html", schools=school_map)
+    # pass the list of abbreviations to the template (numbers requested dynamically)
+    return render_template("index.html", schools=school_map, abbrvs=abbrv_list)
 
 @application.route("/majors/<int:school_id>")
 def majors(school_id):
@@ -64,6 +87,11 @@ def search():
     jb = JSONbase(processed_data)
     course_dict = jb.json_dict_maker()
     return jsonify(course_dict)
+
+@application.route("/get_numbers/<abbrv>")
+def get_numbers(abbrv):
+    numbers = abbrv_number_map.get(abbrv.upper(), [])
+    return jsonify({"numbers": numbers})
 
 if __name__ == "__main__":
     application.run(debug=True)
