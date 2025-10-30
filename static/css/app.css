@@ -1,0 +1,110 @@
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.25rem;
+}
+
+.chip-label {
+  cursor: grab;
+  user-select: none;
+  border: 2px solid #6366f1;
+  background: #eef2ff;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.4rem;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.chip-label:hover {
+  background: #ddd6fe;
+  border-color: #7c3aed;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.1);
+}
+
+.chip-label.dragging,
+.term-course.dragging {
+  opacity: 0.5;
+}
+
+.chip-remove,
+.term-remove {
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.chip-remove:hover,
+.term-remove:hover {
+  color: #991b1b;
+}
+
+.course-popup {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 20rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  box-shadow: 0 8px 16px rgb(0 0 0 / 0.12);
+  font-size: 0.85rem;
+  cursor: default;
+}
+
+.chip:hover .course-popup {
+  display: block;
+}
+
+.chip-label.dragging + .course-popup,
+.chip:has(.dragging) .course-popup {
+  display: none;
+}
+
+.drop-zone {
+  border: 2px dashed #cbd5e0;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.term-zone {
+  min-height: 9rem;
+}
+
+.drop-zone.drag-over {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.term-zone:not(:has(.term-course)) .zone-hint,
+.list-zone:not(:has(.chip)) .zone-hint {
+  display: block;
+}
+
+.zone-hint {
+  display: none;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.term-course {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.25rem 0;
+  padding: 0.4rem 0.75rem;
+  background: #dbeafe;
+  border: 1px solid #3b82f6;
+  border-radius: 0.4rem;
+  cursor: grab;
+}
+
+.course-pill.picked {
+  box-shadow: 0 0 0 2px #6366f1;
+}

@@ -2,624 +2,109 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ASSIST EV</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* Popup styling */
-    .course-popup {
-      display: none;
-      position: absolute;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      z-index: 1000;
-      min-width: 250px;
-      max-width: 400px;
-    }
-    
-    .course-item:hover .course-popup {
-      display: block;
-    }
-
-    /* Drag and drop styling */
-    .draggable-course {
-      cursor: move;
-      user-select: none;
-      border: 2px solid #6366f1;
-      background: #eef2ff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      display: inline-block;
-      margin: 4px;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-
-    .draggable-course:hover {
-      background: #ddd6fe;
-      border-color: #7c3aed;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .draggable-course.dragging {
-      opacity: 0.5;
-    }
-
-    .drop-zone {
-      min-height: 150px;
-      border: 2px dashed #cbd5e0;
-      border-radius: 8px;
-      padding: 12px;
-      transition: all 0.2s;
-    }
-
-    .drop-zone.drag-over {
-      background-color: #e6f7ff;
-      border-color: #3b82f6;
-    }
-
-    .semester-course {
-      background: #dbeafe;
-      border: 1px solid #3b82f6;
-      padding: 8px 12px;
-      margin: 4px 0;
-      border-radius: 6px;
-      cursor: move;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    #selected-courses {
-      list-style: none;
-      padding: 0;
-    }
-
-    .course-item {
-      display: inline-block;
-      margin: 4px;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
 
-  <!-- Top Logo -->
-  <div class="flex justify-center mt-6">
-    <img src="{{ url_for('static', filename='StackedLogo_Black.png') }}" alt="Stacked Logo" class="h-24">
-  </div>
+  <header class="flex justify-center mt-6">
+    <img src="{{ url_for('static', filename='img/stacked-logo.png') }}" alt="ASSIST EV" class="h-24">
+  </header>
 
-  <!-- Main Content -->
-  <div class="flex-grow flex flex-col items-center p-6">
-    <h1 class="text-4xl font-bold text-center text-blue-600 mb-8">ASSIST EV</h1>
+  <main class="flex-grow flex flex-col items-center p-6">
+    <h1 class="text-4xl font-bold text-center text-blue-600 mb-2">ASSIST EV</h1>
+    <p class="text-gray-600 mb-8 text-center max-w-xl">
+      Pick the schools and majors you're aiming for and see which Evergreen Valley College courses transfer.
+    </p>
 
-    <!-- Forms -->
-    <div id="forms" class="space-y-4 w-full max-w-md">
-      <div class="flex space-x-4 items-center school-major-pair justify-center">
-        <select class="school-dropdown border p-2 rounded w-1/2">
-          <option value="">Select Transfer School</option>
-          {% for id, name in schools.items() %}
-            <option value="{{ id }}">{{ name }}</option>
-          {% endfor %}
-        </select>
-        <select class="major-dropdown border p-2 rounded hidden w-1/2">
-          <option value="">Select Major</option>
-        </select>
+    <div id="pairs" class="space-y-4 w-full max-w-xl"></div>
+
+    <div class="mt-6 flex gap-4 justify-center">
+      <button id="add-pair" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded">ADD MORE</button>
+      <button id="search" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded disabled:opacity-60">SEARCH</button>
+    </div>
+
+    <p id="status" class="mt-4 text-sm text-red-600 hidden"></p>
+
+    <section id="results" class="mt-8 space-y-4 w-full max-w-4xl"></section>
+
+    <section id="planner" class="mt-8 hidden w-full max-w-4xl">
+      <h2 class="text-2xl font-bold mb-1">Your EVC Course Plan</h2>
+      <p class="text-sm text-gray-500 mb-3">Hover a course for section info. Drag it into a term to schedule it, or drag it back here to unschedule.</p>
+
+      <div id="course-list" class="drop-zone list-zone mb-4 bg-white min-h-24">
+        <p class="zone-hint">Every course on your list is scheduled.</p>
       </div>
-    </div>
 
-    <!-- Buttons -->
-    <div class="mt-6 flex space-x-4 justify-center">
-      <button id="addMore" class="px-4 py-2 bg-green-500 text-white rounded">ADD MORE</button>
-      <button id="searchBtn" class="px-4 py-2 bg-blue-500 text-white rounded">SEARCH</button>
-    </div>
-
-    <!-- Articulation Results -->
-    <div id="results" class="mt-8 space-y-4 w-full max-w-3xl"></div>
-
-    <!-- Course Planner -->
-    <div id="course-planner" class="mt-8 hidden w-full max-w-3xl">
-      <h2 class="text-2xl font-bold mb-3">Your EVC Course Plan</h2>
-      <div id="selected-courses" class="mb-4 border-2 border-gray-300 rounded-lg p-4 bg-white min-h-24"></div>
-
-      <!-- Add custom courses -->
-      <div class="flex space-x-2 items-center mb-6">
-        <select id="abbrv-dropdown" class="border p-2 rounded w-1/4">
+      <div class="flex gap-2 items-center mb-8">
+        <select id="subject" class="border p-2 rounded w-1/4">
           <option value="">Subject</option>
-          {% for abbrv in abbrvs %}
-            <option value="{{ abbrv }}">{{ abbrv }}</option>
+          {% for subject in subjects %}
+            <option value="{{ subject }}">{{ subject }}</option>
           {% endfor %}
         </select>
-
-        <select id="number-dropdown" class="border p-2 rounded w-1/4">
+        <select id="number" class="border p-2 rounded w-1/4">
           <option value="">Course #</option>
         </select>
-
-        <button id="addCourseBtn" class="px-4 py-2 bg-purple-500 text-white rounded">Add</button>
+        <button id="add-course" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded">Add</button>
       </div>
 
-      <!-- Semester Planner -->
-      <div id="semester-planner" class="mt-8">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-2xl font-bold">Academic Year Planner</h2>
-          <button id="addYearBtn" class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600">
-            Add Academic Year
-          </button>
-        </div>
-        <div id="years-container"></div>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold">Academic Year Planner</h2>
+        <button id="add-year" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded">Add Academic Year</button>
       </div>
-    </div>
-  </div>
+      <div id="years"></div>
+    </section>
+  </main>
 
-  <!-- Footer -->
   <footer class="bg-gray-200 text-gray-700 text-sm py-4 px-6 flex items-center">
-    <img src="{{ url_for('static', filename='StraightLogo_Black.png') }}" alt="Straight Logo" class="h-12 mr-4">
-    <p class="text-left">
+    <img src="{{ url_for('static', filename='img/straight-logo.png') }}" alt="" class="h-12 mr-4">
+    <p>
       Thank you to EVC and the team for making this project possible.
       We've been able to amass a large userbase due to your efforts and couldn't be happier with the progress.
       The website will be normally updated and we will ensure any glitches/errors get fixed immediately.
     </p>
   </footer>
 
-<script>
-  // --- Utilities ---
-  const selectedCourses = new Set(); // holds course strings like "ACTG 001A"
-  const coursesInSemesters = new Map(); // tracks which courses are placed in semesters
-  let yearCounter = 0;
+  <template id="pair-template">
+    <div class="pair flex gap-4 items-center justify-center">
+      <select class="school border p-2 rounded w-1/2">
+        <option value="">Select Transfer School</option>
+        {% for id, name in schools %}
+          <option value="{{ id }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+      <select class="major border p-2 rounded w-1/2 hidden">
+        <option value="">Select Major</option>
+      </select>
+    </div>
+  </template>
 
-  function renderCourseList() {
-    const list = document.getElementById("selected-courses");
-    list.innerHTML = "";
-    
-    Array.from(selectedCourses).forEach(course => {
-      // Skip if course is currently in a semester
-      if (coursesInSemesters.has(course)) {
-        return;
-      }
-      
-      const wrapper = document.createElement("div");
-      wrapper.className = "course-item relative inline-block";
-      
-      const span = document.createElement("span");
-      span.textContent = course;
-      span.className = "draggable-course";
-      span.draggable = true;
-      span.dataset.course = course;
-      
-      // Add drag events
-      span.addEventListener('dragstart', handleDragStart);
-      span.addEventListener('dragend', handleDragEnd);
-      
-      // Create popup
-      const popup = document.createElement("div");
-      popup.className = "course-popup";
-      popup.innerHTML = `
-        <div class="font-bold text-lg mb-2">${course}</div>
-        <div class="text-sm text-gray-600 mb-1">Course Details</div>
-        <div class="text-sm">
-          <p class="mb-1"><strong>Title:</strong> [Coming Soon]</p>
-          <p class="mb-1"><strong>Units:</strong> [Coming Soon]</p>
-          <p class="mb-1"><strong>Prerequisites:</strong> [Coming Soon]</p>
-          <p><strong>Description:</strong> Detailed course information will be displayed here.</p>
-        </div>
-      `;
-      span.appendChild(popup);
-      
-      const removeBtn = document.createElement("button");
-      removeBtn.textContent = "×";
-      removeBtn.className = "ml-2 text-red-600 hover:text-red-800 font-bold text-lg align-middle";
-      removeBtn.onclick = () => {
-        selectedCourses.delete(course);
-        coursesInSemesters.delete(course);
-        document.querySelectorAll(".course-pill").forEach(p => {
-          if (p.dataset.course === course) p.classList.remove("ring-2", "ring-indigo-500");
-        });
-        renderCourseList();
-      };
-      
-      wrapper.appendChild(span);
-      wrapper.appendChild(removeBtn);
-      list.appendChild(wrapper);
-    });
-  }
-
-  // --- Drag and Drop Handlers ---
-  let draggedCourse = null;
-  let draggedFromSemester = null;
-
-  function handleDragStart(e) {
-    draggedCourse = e.target.dataset.course;
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedCourse);
-    
-    // Check if dragging from a semester
-    const semesterCourse = e.target.closest('.semester-course');
-    if (semesterCourse) {
-      draggedFromSemester = semesterCourse.parentElement;
-    } else {
-      draggedFromSemester = null;
-    }
-  }
-
-  function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
-  }
-
-  function handleDragOver(e) {
-    if (e.preventDefault) {
-      e.preventDefault();
-    }
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-  }
-
-  function handleDragEnter(e) {
-    const dropZone = e.target.closest('.drop-zone');
-    if (dropZone) {
-      dropZone.classList.add('drag-over');
-    }
-  }
-
-  function handleDragLeave(e) {
-    const dropZone = e.target.closest('.drop-zone');
-    if (dropZone && !dropZone.contains(e.relatedTarget)) {
-      dropZone.classList.remove('drag-over');
-    }
-  }
-
-  function handleDrop(e) {
-    if (e.stopPropagation) {
-      e.stopPropagation();
-    }
-    e.preventDefault();
-
-    const dropZone = e.target.closest('.drop-zone');
-    if (dropZone) {
-      dropZone.classList.remove('drag-over');
-      const course = e.dataTransfer.getData('text/plain');
-      
-      // Check if course already exists in this semester
-      const existingCourses = Array.from(dropZone.querySelectorAll('.semester-course')).map(
-        el => el.dataset.course
-      );
-      
-      if (!existingCourses.includes(course)) {
-        // If dragged from another semester, remove it from there
-        if (draggedFromSemester && draggedFromSemester !== dropZone) {
-          const oldCourse = draggedFromSemester.querySelector(`[data-course="${course}"]`);
-          if (oldCourse) {
-            oldCourse.remove();
-          }
-        }
-        
-        // Add to new semester and track it
-        addCourseToSemester(dropZone, course);
-        coursesInSemesters.set(course, dropZone);
-        renderCourseList();
-      }
-    }
-    
-    draggedFromSemester = null;
-    return false;
-  }
-
-  function addCourseToSemester(dropZone, courseName) {
-    const courseDiv = document.createElement('div');
-    courseDiv.className = 'semester-course';
-    courseDiv.draggable = true;
-    courseDiv.dataset.course = courseName;
-    
-    const courseText = document.createElement('span');
-    courseText.textContent = courseName;
-    
-    const removeBtn = document.createElement('button');
-    removeBtn.textContent = '×';
-    removeBtn.className = 'text-red-600 hover:text-red-800 font-bold text-lg';
-    removeBtn.onclick = () => {
-      courseDiv.remove();
-      coursesInSemesters.delete(courseName);
-      renderCourseList();
-    };
-    
-    // Allow dragging between semesters
-    courseDiv.addEventListener('dragstart', (e) => {
-      draggedCourse = courseName;
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', courseName);
-      draggedFromSemester = dropZone;
-    });
-    
-    courseDiv.addEventListener('dragend', (e) => {
-      // If dropped outside any semester, return to course list
-      setTimeout(() => {
-        if (draggedCourse === courseName && !coursesInSemesters.has(courseName)) {
-          renderCourseList();
-        }
-      }, 50);
-    });
-    
-    courseDiv.appendChild(courseText);
-    courseDiv.appendChild(removeBtn);
-    dropZone.appendChild(courseDiv);
-  }
-
-  function createAcademicYear() {
-    yearCounter++;
-    const yearDiv = document.createElement('div');
-    yearDiv.className = 'bg-white shadow-lg rounded-lg p-6 mb-6';
-    yearDiv.innerHTML = `
+  <template id="year-template">
+    <div class="year bg-white shadow-lg rounded-lg p-6 mb-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold">Academic Year ${yearCounter}</h3>
-        <button class="remove-year-btn text-red-600 hover:text-red-800 text-sm">Remove Year</button>
+        <h3 class="year-title text-xl font-bold"></h3>
+        <button class="remove-year text-red-600 hover:text-red-800 text-sm">Remove Year</button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <h4 class="font-semibold text-lg mb-2 text-orange-600">Fall Semester</h4>
-          <div class="drop-zone" data-semester="fall" data-year="${yearCounter}">
-            <p class="text-gray-400 text-sm">Drag courses here</p>
-          </div>
+          <div class="drop-zone term-zone" data-term="fall"><p class="zone-hint">Drag courses here</p></div>
         </div>
         <div>
           <h4 class="font-semibold text-lg mb-2 text-green-600">Spring Semester</h4>
-          <div class="drop-zone" data-semester="spring" data-year="${yearCounter}">
-            <p class="text-gray-400 text-sm">Drag courses here</p>
-          </div>
+          <div class="drop-zone term-zone" data-term="spring"><p class="zone-hint">Drag courses here</p></div>
         </div>
         <div>
           <h4 class="font-semibold text-lg mb-2 text-yellow-600">Summer Quarter</h4>
-          <div class="drop-zone" data-semester="summer" data-year="${yearCounter}">
-            <p class="text-gray-400 text-sm">Drag courses here</p>
-          </div>
+          <div class="drop-zone term-zone" data-term="summer"><p class="zone-hint">Drag courses here</p></div>
         </div>
       </div>
-    `;
-    
-    // Add event listeners for drop zones
-    const dropZones = yearDiv.querySelectorAll('.drop-zone');
-    dropZones.forEach(zone => {
-      zone.addEventListener('dragover', handleDragOver);
-      zone.addEventListener('dragenter', handleDragEnter);
-      zone.addEventListener('dragleave', handleDragLeave);
-      zone.addEventListener('drop', handleDrop);
-    });
-    
-    // Add remove year functionality
-    yearDiv.querySelector('.remove-year-btn').addEventListener('click', () => {
-      // Remove courses from tracking when year is deleted
-      const coursesInYear = yearDiv.querySelectorAll('.semester-course');
-      coursesInYear.forEach(courseEl => {
-        const courseName = courseEl.dataset.course;
-        coursesInSemesters.delete(courseName);
-      });
-      yearDiv.remove();
-      renderCourseList();
-    });
-    
-    document.getElementById('years-container').appendChild(yearDiv);
-  }
+    </div>
+  </template>
 
-  // --- Major dropdown wiring ---
-  function attachDropdownListeners(container) {
-    const schoolSelect = container.querySelector(".school-dropdown");
-    const majorSelect = container.querySelector(".major-dropdown");
-
-    schoolSelect.addEventListener("change", function () {
-      const schoolId = this.value;
-      if (schoolId) {
-        fetch(`/majors/${schoolId}`)
-          .then(res => res.json())
-          .then(data => {
-            majorSelect.innerHTML = '<option value="">Select Major</option>';
-            if (data.majors) {
-              data.majors.forEach(m => {
-                const opt = document.createElement("option");
-                opt.value = m;
-                opt.textContent = m;
-                majorSelect.appendChild(opt);
-              });
-              majorSelect.classList.remove("hidden");
-            }
-          });
-      }
-    });
-  }
-
-  attachDropdownListeners(document.querySelector(".school-major-pair"));
-
-  document.getElementById("addMore").addEventListener("click", function () {
-    const div = document.createElement("div");
-    div.className = "flex space-x-4 items-center school-major-pair justify-center";
-    div.innerHTML = `
-      <select class="school-dropdown border p-2 rounded w-1/2">
-        <option value="">Select Transfer School</option>
-        {% for id, name in schools.items() %}
-          <option value="{{ id }}">{{ name }}</option>
-        {% endfor %}
-      </select>
-      <select class="major-dropdown border p-2 rounded hidden w-1/2">
-        <option value="">Select Major</option>
-      </select>`;
-    document.getElementById("forms").appendChild(div);
-    attachDropdownListeners(div);
-  });
-
-  // --- Load numbers when an abbreviation is chosen ---
-  document.getElementById("abbrv-dropdown").addEventListener("change", function() {
-    const abbrv = this.value;
-    const numSelect = document.getElementById("number-dropdown");
-    numSelect.innerHTML = '<option value="">Course #</option>';
-
-    if (abbrv) {
-      fetch(`/get_numbers/${abbrv}`)
-        .then(res => res.json())
-        .then(data => {
-          (data.numbers || []).forEach(num => {
-            const opt = document.createElement("option");
-            opt.value = num;
-            opt.textContent = num;
-            numSelect.appendChild(opt);
-          });
-        });
-    }
-  });
-
-  // Add custom course from dropdowns
-  document.getElementById("addCourseBtn").addEventListener("click", () => {
-    const abbrv = document.getElementById("abbrv-dropdown").value;
-    const number = document.getElementById("number-dropdown").value;
-    if (abbrv && number) {
-      const course = `${abbrv} ${number}`;
-      selectedCourses.add(course);
-      renderCourseList();
-      // mark any pills that match
-      document.querySelectorAll(".course-pill").forEach(p => {
-        if (p.dataset.course === course) p.classList.add("ring-2", "ring-indigo-500");
-      });
-    }
-  });
-
-  // Add Academic Year button
-  document.getElementById("addYearBtn").addEventListener("click", () => {
-    createAcademicYear();
-  });
-
-  // --- Helper to create pill elements for display ---
-  function makeCoursePill(courseArr, color, courseName, clickable) {
-    const pill = document.createElement("span");
-    pill.className = `inline-block text-sm px-2 py-1 m-1 rounded course-pill`;
-    // base bg per color
-    if (color === "green") pill.classList.add("bg-green-200", "text-green-800");
-    else pill.classList.add("bg-blue-200", "text-blue-800");
-
-    pill.textContent = courseArr[0] && courseArr[1] ? `${courseArr[0]} ${courseArr[1]}: ${courseArr[2]}` : courseArr[2] || courseName;
-    pill.dataset.course = courseName || pill.textContent;
-
-    if (selectedCourses.has(pill.dataset.course)) {
-      // visually indicate selected
-      pill.classList.add("ring-2", "ring-indigo-500");
-    }
-
-    if (clickable) {
-      pill.style.cursor = "pointer";
-      pill.addEventListener("click", () => {
-        toggleCourse(pill.dataset.course);
-        // toggle visual ring
-        pill.classList.toggle("ring-2");
-        pill.classList.toggle("ring-indigo-500");
-      });
-    }
-
-    return pill;
-  }
-
-  // --- Articulation Search and display (core) ---
-  document.getElementById("searchBtn").addEventListener("click", function () {
-    // collect pairs
-    const pairs = [];
-    document.querySelectorAll(".school-major-pair").forEach(div => {
-      const school = div.querySelector(".school-dropdown").value;
-      const major = div.querySelector(".major-dropdown").value;
-      if (school && major) pairs.push({id: parseInt(school), major: major});
-    });
-
-    fetch("/search", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(pairs)
-    })
-    .then(res => res.json())
-    .then(data => {
-      const resultsDiv = document.getElementById("results");
-      resultsDiv.innerHTML = "";
-
-      // clear selectedCourses and tracking, then prefill with EVC sending courses from articulations
-      selectedCourses.clear();
-      coursesInSemesters.clear();
-
-      // First pass to collect sending courses to pre-populate planner
-      for (const [school, courses] of Object.entries(data)) {
-        const sendingAll = courses[1]; // sending is second element
-        sendingAll.forEach(sendingList => {
-          sendingList.forEach(c => {
-            // only add actual course codes with prefix+number
-            if (c[0] && c[1]) {
-              selectedCourses.add(`${c[0]} ${c[1]}`);
-            }
-          });
-        });
-      }
-
-      // Now render cards; selectedCourses is already filled so pills reflect selection
-      for (const [school, courses] of Object.entries(data)) {
-        const card = document.createElement("div");
-        card.className = "bg-white shadow p-4 rounded";
-
-        const title = document.createElement("h2");
-        title.className = "text-xl font-bold mb-4";
-        title.textContent = school;
-        card.appendChild(title);
-
-        const courseContainer = document.createElement("div");
-        courseContainer.className = "space-y-6";
-
-        const [receiving, sending] = courses;
-
-        for (let i = 0; i < receiving.length; i++) {
-          const pairDiv = document.createElement("div");
-          pairDiv.className = "grid grid-cols-2 gap-4 items-center";
-
-          const recvBox = document.createElement("div");
-          recvBox.className = "bg-blue-50 p-2 rounded";
-          receiving[i].forEach(group => {
-            group.forEach(c => {
-              // receiving (target) not clickable for planner
-              const courseName = (c[0] && c[1]) ? `${c[0]} ${c[1]}` : (c[2] || "");
-              recvBox.appendChild(makeCoursePill(c, "blue", courseName, false));
-            });
-          });
-
-          const sendBox = document.createElement("div");
-          sendBox.className = "bg-green-50 p-2 rounded";
-          sending[i].forEach(c => {
-            // sending (EVC) IS clickable/togglable for planner
-            const courseName = (c[0] && c[1]) ? `${c[0]} ${c[1]}` : (c[2] || "");
-            // only create clickable pill if we have a code (prefix + number), otherwise non-clickable text
-            const clickable = Boolean(c[0] && c[1]);
-            sendBox.appendChild(makeCoursePill(c, "green", courseName, clickable));
-          });
-
-          pairDiv.appendChild(recvBox);
-          pairDiv.appendChild(sendBox);
-          courseContainer.appendChild(pairDiv);
-        }
-
-        card.appendChild(courseContainer);
-        resultsDiv.appendChild(card);
-      }
-
-      // show the planner and render the prefilled selectedCourses
-      showPlanner();
-      renderCourseList();
-      
-      // Initialize with one academic year
-      if (yearCounter === 0) {
-        createAcademicYear();
-      }
-    });
-  });
-
-  function showPlanner() {
-    document.getElementById("course-planner").classList.remove("hidden");
-  }
-
-  function toggleCourse(courseName) {
-    if (!courseName) return;
-    if (selectedCourses.has(courseName)) selectedCourses.delete(courseName);
-    else selectedCourses.add(courseName);
-    renderCourseList();
-  }
-</script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

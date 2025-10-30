@@ -1,33 +1,16 @@
-from flask import Flask, render_template, request, jsonify
-from backend import major_getter, JSONbase
-import pandas as pd
-import os
+import requests
+from flask import Flask, abort, jsonify, render_template, request
+
+import assist
+from catalog import load_catalog
 
 application = Flask(__name__)
+catalog = load_catalog()
 
-# --- Load and Process Courses CSV ---
-csv_path = os.path.join(os.path.dirname(__file__), "data", "courses.csv")
-course_df = pd.read_csv(csv_path)
-course_list = sorted(course_df["Course Title"].dropna().unique())
-
-abbrv_number_map = {}
-for item in course_list:
-    parts = str(item).split(" ", 1)
-    if len(parts) == 2:
-        abbrv, number = parts
-        abbrv_number_map.setdefault(abbrv.upper(), []).append(number)
-
-# Sort numbers for each abbreviation
-for abbrv in abbrv_number_map:
-    abbrv_number_map[abbrv] = sorted(abbrv_number_map[abbrv])
-
-abbrv_list = sorted(list(abbrv_number_map.keys()))
-
-# --- School map ---
-school_map = {
-    1: "California State University, Maritime Academya",
+SCHOOLS = {
+    1: "California State University, Maritime Academy",
     7: "University of California, San Diego",
-    11: "California Polytechnic University, San Luis Obispo",
+    11: "California Polytechnic State University, San Luis Obispo",
     12: "California State University, Monterey Bay",
     21: "California State University, East Bay",
     23: "California State University, San Marcos",
@@ -39,7 +22,7 @@ school_map = {
     46: "University of California, Riverside",
     50: "California State University, Dominguez Hills",
     60: "California State University, Sacramento",
-    75: "California Polytechnic University, Pomona",
+    75: "California State Polytechnic University, Pomona",
     76: "California State University, Los Angeles",
     79: "University of California, Berkeley",
     81: "California State University, Long Beach",
@@ -47,7 +30,7 @@ school_map = {
     88: "Sonoma State University",
     89: "University of California, Davis",
     98: "California State University, Bakersfield",
-    115: "California Polytechnic University, Humboldt",
+    115: "California State Polytechnic University, Humboldt",
     116: "San Francisco State University",
     117: "University of California, Los Angeles",
     120: "University of California, Irvine",
@@ -57,41 +40,64 @@ school_map = {
     141: "California State University, Chico",
     143: "California State University, Channel Islands",
     144: "University of California, Merced",
+    209: "Loyola Marymount University",
     211: "Dominican University of California",
+    214: "Pepperdine University",
     217: "University of the Pacific",
     222: "Palo Alto University",
     227: "Santa Clara University",
     228: "Simpson University",
-    209: "Loyola Marymount University",
-    214: "Pepperdine University"
 }
+MAX_PAIRS = 6
 
-# --- Routes ---
+
 @application.route("/")
 def home():
-    # pass the list of abbreviations to the template (numbers requested dynamically)
-    return render_template("index.html", schools=school_map, abbrvs=abbrv_list)
+    schools = sorted(SCHOOLS.items(), key=lambda kv: kv[1])
+    return render_template("index.html", schools=schools, subjects=catalog.subjects)
+
+
+@application.route("/health")
+def health():
+    return "ok"
+
 
 @application.route("/majors/<int:school_id>")
 def majors(school_id):
+    if school_id not in SCHOOLS:
+        abort(404)
     try:
-        majors = major_getter(school_id)
-        return jsonify({"majors": majors})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"majors": assist.majors(school_id)})
+    except requests.RequestException:
+        return jsonify({"error": "ASSIST is not responding right now. Try again in a minute."}), 502
+
 
 @application.route("/search", methods=["POST"])
 def search():
-    data = request.json  # [{"id": school_id, "major": "..."}, ...]
-    processed_data = [(d["id"], d["major"], f"{school_map[d['id']]} — {d['major']}") for d in data]
-    jb = JSONbase(processed_data)
-    course_dict = jb.json_dict_maker()
-    return jsonify(course_dict)
+    pairs = request.get_json(silent=True)
+    if not isinstance(pairs, list) or not pairs:
+        return jsonify({"error": "Pick at least one school and major."}), 400
 
-@application.route("/get_numbers/<abbrv>")
-def get_numbers(abbrv):
-    numbers = abbrv_number_map.get(abbrv.upper(), [])
-    return jsonify({"numbers": numbers})
+    lookups = []
+    for pair in pairs[:MAX_PAIRS]:
+        school_id, major = pair.get("id"), pair.get("major")
+        if school_id in SCHOOLS and major:
+            lookups.append((f"{SCHOOLS[school_id]} — {major}", school_id, major))
+
+    if not lookups:
+        return jsonify({"error": "Pick at least one school and major."}), 400
+    return jsonify(assist.articulations(lookups))
+
+
+@application.route("/numbers/<subject>")
+def numbers(subject):
+    return jsonify({"numbers": catalog.numbers_for(subject)})
+
+
+@application.route("/course/<subject>/<number>")
+def course(subject, number):
+    return jsonify(catalog.details(f"{subject} {number}"))
+
 
 if __name__ == "__main__":
     application.run(debug=True)
