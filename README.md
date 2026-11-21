@@ -1,8 +1,16 @@
 # Assist-EV
 
-Transfer planning for Evergreen Valley College students. You pick the UC/CSU/private schools and majors you're considering, Assist-EV pulls the official articulation agreements from ASSIST.org, and then lets you lay the EVC courses out term by term.
+Transfer planning for students at Evergreen Valley College (EVC). You pick the UC/CSU/private schools and majors you're considering, Assist-EV pulls the official articulation agreements from ASSIST.org, and then lets you lay the EVC courses out term by term.
 
-**Live:** http://assist-ev.us-west-2.elasticbeanstalk.com
+## Status: shut down
+
+The hosted version (formerly at assist-ev.us-west-2.elasticbeanstalk.com) has been taken offline.
+
+ASSIST.org changed how its API accepts requests. The site's own frontend now gets an anti-forgery token (`X-XSRF-TOKEN`) and sends it back with every call, and requests without it are refused with `400 Bad Request`. Every endpoint this project depends on (`AcademicYears`, `agreements`, `articulation/Agreements`) is affected. Assist-EV was built on plain unauthenticated requests to those endpoints, so school and major lookups, and the planner that depends on them, stopped working.
+
+We could have copied the token from ASSIST's own frontend. We decided not to: ASSIST never offered this API to third parties, and the token reads as a deliberate choice to keep it that way. Without sanctioned access, the service shouldn't run in public.
+
+The code stays here as a record of the approach. The schedule parser, the articulation normalization, and the planner are independent of how the data is fetched, so if ASSIST ever offers sanctioned access, only `assist.py` needs to change.
 
 ## Motivation
 
@@ -14,12 +22,12 @@ Assist-EV collapses that into a single view. Search several school/major pairs a
 
 There are three pieces.
 
-**1. ASSIST's API (`assist.py`).** ASSIST doesn't publish a developer API, but the site itself runs on a JSON API that is reasonably stable. Getting an agreement takes two calls:
+**1. ASSIST's API (`assist.py`).** ASSIST doesn't publish a developer API. The site itself runs on a JSON API, and this client was written against it. Getting an agreement takes two calls:
 
 - `GET /api/agreements?receivingInstitutionId=…&sendingInstitutionId=2&academicYearId=…&categoryCode=major` returns the majors a school has on file with EVC (institution `2`), each with a `key`.
 - `GET /api/articulation/Agreements?Key=…` returns the agreement. The `articulations` field is itself a JSON string, so it gets decoded twice.
 
-Academic year IDs are years since 1950 (2025–26 is `76`). An earlier version hardcoded `74`, which quietly served 2023–24 agreements. The client now reads `/api/AcademicYears` and walks back from the newest year until it finds one the school has actually published, since UCs and CSUs post new agreements at different times.
+Academic year IDs are years since 1950 (2025–26 is `76`). An earlier version hardcoded `74`, which quietly served 2023–24 agreements. The client now reads `/api/AcademicYears` and walks back from the newest year until it finds one the school has actually published, since UCs and CSUs post new agreements at different times. Each year is tried independently, so a year that errors out is logged and skipped rather than failing the whole lookup.
 
 Each articulation row has a receiving side (a single course, a series that must be taken together, or a general requirement) and a sending side (EVC courses joined by `And`/`Or`, possibly in multiple groups, or a reason there's no match). Both get normalized into `(prefix, number, title, conjunction)` tuples so the frontend only deals with one shape. Responses are cached in memory for six hours and multi-school searches run in parallel, which matters because ASSIST is slow and the old version slept between requests.
 
@@ -58,20 +66,20 @@ pip install -r requirements.txt
 python application.py
 ```
 
-Then open http://127.0.0.1:5000. It needs outbound access to assist.org.
+Then open http://127.0.0.1:5000. Lookups will fail with ASSIST's current API (see [Status](#status-shut-down)); the page itself loads.
 
 ## Deployment
 
-Elastic Beanstalk, Python 3.13 on Amazon Linux 2023, single instance (no load balancer) on a `t4g.small`. The app is mostly I/O-bound waiting on ASSIST, so gunicorn runs 2 workers × 4 threads, and nginx serves `/static` directly. Pandas was dropped in favor of the standard `csv` module to keep memory low on the small instance.
+This describes how it ran before the shutdown. Elastic Beanstalk, Python 3.13 on Amazon Linux 2023, single instance (no load balancer) on a `t4g.small`. The app is mostly I/O-bound waiting on ASSIST, so gunicorn runs 2 workers × 4 threads, and nginx serves `/static` directly. Pandas was dropped in favor of the standard `csv` module to keep memory low on the small instance.
 
 ```bash
-eb create assist-ev-env --single --instance_types t4g.small --cname assist-ev
+eb create assist-ev-env --single -i t4g.small --cname assist-ev
 eb deploy
 ```
 
 ## Limitations
 
-- ASSIST's API is undocumented. If they change the response shape, `assist.py` is the only file that should need to change.
+- ASSIST's API is undocumented and was never meant for outside clients. That made the project fragile from the start, and it is what ended it.
 - The schedule is a Fall 2025 snapshot. Moving it to S3 so it can be refreshed without redeploying is next.
 - The plan lives in the page. Refreshing clears it.
 - Sending college is fixed to EVC.
@@ -87,4 +95,4 @@ These were useful for understanding how ASSIST structures its data:
 
 ## Team
 
-Built by Siddharth Kurra, Saumya Goswami, and the Assist-EV team. Not affiliated with ASSIST.org.
+Built by Siddharth Kurra, Saumya Goswami, and the Assist-EV team. An independent project, not affiliated with Evergreen Valley College or ASSIST.org.

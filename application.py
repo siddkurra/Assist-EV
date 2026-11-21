@@ -1,9 +1,12 @@
+import logging
+
 import requests
 from flask import Flask, abort, jsonify, render_template, request
 
 import assist
 from catalog import load_catalog
 
+logging.basicConfig(level=logging.INFO)
 application = Flask(__name__)
 catalog = load_catalog()
 
@@ -69,6 +72,7 @@ def majors(school_id):
     try:
         return jsonify({"majors": assist.majors(school_id)})
     except requests.RequestException:
+        application.logger.exception("majors lookup failed for school %s", school_id)
         return jsonify({"error": "ASSIST is not responding right now. Try again in a minute."}), 502
 
 

@@ -1,4 +1,5 @@
 import json
+import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -10,8 +11,8 @@ EVC_ID = 2
 CACHE_TTL = 6 * 60 * 60
 FALLBACK_YEARS = [76, 75, 74]
 
+log = logging.getLogger(__name__)
 _session = requests.Session()
-_session.headers["User-Agent"] = "assist-ev (+https://github.com/butterknives/Assist-EV)"
 _cache = {}
 _cache_lock = threading.Lock()
 
@@ -40,7 +41,8 @@ def academic_years():
             years = _get("AcademicYears")
             ids = sorted((y.get("Id") or y.get("id") for y in years), reverse=True)
             return [i for i in ids if i][:3] or FALLBACK_YEARS
-        except (requests.RequestException, ValueError, AttributeError):
+        except (requests.RequestException, ValueError, AttributeError) as exc:
+            log.warning("academic years lookup failed: %s", exc)
             return FALLBACK_YEARS
 
     return _cached("years", load)
@@ -48,17 +50,25 @@ def academic_years():
 
 def agreements(school_id):
     def load():
+        error = None
         for year in academic_years():
-            data = _get(
-                "agreements",
-                receivingInstitutionId=school_id,
-                sendingInstitutionId=EVC_ID,
-                academicYearId=year,
-                categoryCode="major",
-            )
+            try:
+                data = _get(
+                    "agreements",
+                    receivingInstitutionId=school_id,
+                    sendingInstitutionId=EVC_ID,
+                    academicYearId=year,
+                    categoryCode="major",
+                )
+            except requests.RequestException as exc:
+                log.warning("agreements school=%s year=%s failed: %s", school_id, year, exc)
+                error = exc
+                continue
             reports = data.get("reports") or []
             if reports:
                 return {r["label"]: r["key"] for r in reports}
+        if error:
+            raise error
         return {}
 
     return _cached(("agreements", school_id), load)
@@ -138,6 +148,7 @@ def articulations(requests_):
         try:
             return label, articulation(school_id, major)
         except (requests.RequestException, ValueError, KeyError) as exc:
+            log.warning("articulation %s failed: %s", label, exc)
             return label, {"error": str(exc)}
 
     with ThreadPoolExecutor(max_workers=4) as pool:
